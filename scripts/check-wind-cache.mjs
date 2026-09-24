@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import {windForPoints} from '../app/wind-data.ts';
+let calls=0,active=0,peak=0;
+globalThis.fetch=async(url)=>{calls++;active++;peak=Math.max(peak,active);await new Promise(r=>setTimeout(r,5));active--;const count=new URL(url).searchParams.get('latitude').split(',').length;return Response.json(Array.from({length:count},()=>({current:{wind_speed_10m:8,wind_direction_10m:230,time:new Date().toISOString().slice(0,16)}})))};
+const points=Array.from({length:80},(_,i)=>({id:String(i),lat:50+i*.01,lon:-2}));
+const [a,b]=await Promise.all([windForPoints(points),windForPoints(points.slice(0,40))]);
+assert.equal(Object.keys(a).length,80);assert.equal(Object.keys(b).length,40);assert.equal(calls,3);assert(peak<=2);
+await windForPoints(points);assert.equal(calls,3,'Unchanged locations are cached');
+await windForPoints([{id:'new-area',lat:59.8123,lon:-3.1234}]);assert.equal(calls,4,'A new pool centre gets fresh wind');
+console.log('Wind cache: shared lookups, bounded concurrency and new-centroid fetching passed');
